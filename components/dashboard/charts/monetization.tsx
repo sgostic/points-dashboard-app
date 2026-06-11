@@ -3,11 +3,11 @@
 import { Bar, BarChart, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PanelCard } from "@/components/dashboard/panel-card";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle, countFormatter } from "./chart-kit";
-import type { Monetization, Project, Range } from "@/lib/dashboard/types";
+import type { Monetization, Project, Range, Variant } from "@/lib/dashboard/types";
 
-export function MonetizationChart({ project, range }: { project: Project; range: Range }) {
+export function MonetizationChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   return (
-    <PanelCard<Monetization> fn="monetization" title="Monetization intent" project={project} range={range}>
+    <PanelCard<Monetization> fn="monetization" title="Monetization intent" project={project} range={range} variant={variant}>
       {(data) => {
         const hasPay = data.wouldPay.length > 0;
         const hasPrice = data.monthlyPrice.length > 0;

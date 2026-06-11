@@ -3,6 +3,7 @@ import { query } from "./clients";
 import type {
   Project,
   Range,
+  Variant,
   Kpis,
   EventsOverTime,
   TimePoint,
@@ -14,6 +15,8 @@ import type {
   ChatSessionsPage,
   ChatSessionRow,
   ChatMessage,
+  FeedbackSubmissionsPage,
+  FeedbackSubmission,
 } from "./types";
 
 /** SQL fragment limiting `events.occurred_at` to the selected range. */
@@ -23,13 +26,27 @@ function rangeClause(range: Range, col = "occurred_at"): string {
   return "true";
 }
 
+/**
+ * SQL fragment restricting to a single A/B/C/D variant. Returns `""` for
+ * "all". `variant` is validated upstream to one of a/b/c/d, so inlining the
+ * literal here is safe (no untrusted input reaches the query string).
+ */
+function variantClause(variant: Variant): string {
+  if (variant === "all") return "";
+  return ` and properties->>'variant' = '${variant}'`;
+}
+
 function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
-export async function getKpis(project: Project, range: Range): Promise<Kpis> {
-  const where = rangeClause(range);
+export async function getKpis(
+  project: Project,
+  range: Range,
+  variant: Variant = "all",
+): Promise<Kpis> {
+  const where = rangeClause(range) + variantClause(variant);
   const rows = await query<{
     unique_visitors: string;
     sessions: string;
@@ -82,13 +99,14 @@ export async function getKpis(project: Project, range: Range): Promise<Kpis> {
 export async function getTopEvents(
   project: Project,
   range: Range,
+  variant: Variant = "all",
 ): Promise<NameCount[]> {
   const rows = await query<{ event_name: string; count: string }>(
     project,
     `
     select event_name, count(*) as count
     from events
-    where ${rangeClause(range)}
+    where ${rangeClause(range)}${variantClause(variant)}
     group by event_name
     order by count desc
     limit 15
@@ -100,8 +118,9 @@ export async function getTopEvents(
 export async function getEventsOverTime(
   project: Project,
   range: Range,
+  variant: Variant = "all",
 ): Promise<EventsOverTime> {
-  const where = rangeClause(range);
+  const where = rangeClause(range) + variantClause(variant);
 
   const topRows = await query<{ event_name: string }>(
     project,
@@ -155,6 +174,7 @@ export async function getEventsOverTime(
 export async function getFunnel(
   project: Project,
   range: Range,
+  variant: Variant = "all",
 ): Promise<FunnelStep[]> {
   const steps: { key: string; label: string }[] = [
     { key: "session_start", label: "Session start" },
@@ -168,7 +188,7 @@ export async function getFunnel(
     `
     select event_name, count(*) as count
     from events
-    where ${rangeClause(range)} and event_name = any($1)
+    where ${rangeClause(range)} and event_name = any($1)${variantClause(variant)}
     group by event_name
     `,
     [steps.map((s) => s.key)],
@@ -180,8 +200,9 @@ export async function getFunnel(
 export async function getEngagement(
   project: Project,
   range: Range,
+  variant: Variant = "all",
 ): Promise<Engagement> {
-  const where = rangeClause(range);
+  const where = rangeClause(range) + variantClause(variant);
 
   const scroll = await query<{ pct: string; count: string }>(
     project,
@@ -228,8 +249,9 @@ export async function getEngagement(
 export async function getMonetization(
   project: Project,
   range: Range,
+  variant: Variant = "all",
 ): Promise<Monetization> {
-  const where = rangeClause(range);
+  const where = rangeClause(range) + variantClause(variant);
 
   const wouldPay = await query<{ would_pay: string; count: string }>(
     project,
@@ -261,8 +283,9 @@ export async function getMonetization(
 export async function getDiscovery(
   project: Project,
   range: Range,
+  variant: Variant = "all",
 ): Promise<Discovery> {
-  const where = rangeClause(range);
+  const where = rangeClause(range) + variantClause(variant);
 
   const interests = await query<{ tag: string; count: string }>(
     project,
@@ -357,6 +380,72 @@ export async function getChatSessions(
     firstMessageAt: new Date(r.first_at).toISOString(),
     lastMessageAt: new Date(r.last_at).toISOString(),
     lastSnippet: r.last_snippet ? r.last_snippet.slice(0, 140) : null,
+  }));
+
+  return {
+    rows: mapped,
+    total: num(totalRows[0]?.total),
+    page,
+    pageSize,
+  };
+}
+
+export async function getFeedbackSubmissions(
+  project: Project,
+  range: Range,
+  variant: Variant,
+  { page, pageSize }: { page: number; pageSize: number },
+): Promise<FeedbackSubmissionsPage> {
+  const offset = Math.max(0, (page - 1) * pageSize);
+  const where = rangeClause(range) + variantClause(variant);
+
+  const totalRows = await query<{ total: string }>(
+    project,
+    `select count(*) as total from events where ${where} and event_name = 'feedback_submitted'`,
+  );
+
+  const rows = await query<{
+    occurred_at: string;
+    visitor_id: string | null;
+    variant: string | null;
+    context: string | null;
+    liked: string | null;
+    disliked: string | null;
+    helps: string | null;
+    would_pay: string | null;
+    monthly_price: string | null;
+  }>(
+    project,
+    `
+    select
+      occurred_at,
+      visitor_id::text                   as visitor_id,
+      properties->>'variant'             as variant,
+      properties->>'context'             as context,
+      properties->>'liked'               as liked,
+      properties->>'disliked'            as disliked,
+      properties->>'helps'               as helps,
+      properties->>'wouldPay'            as would_pay,
+      properties->>'monthlyPrice'        as monthly_price
+    from events
+    where ${where} and event_name = 'feedback_submitted'
+    order by occurred_at desc
+    limit $1 offset $2
+    `,
+    [pageSize, offset],
+  );
+
+  const mapped: FeedbackSubmission[] = rows.map((r, i) => ({
+    id: `${new Date(r.occurred_at).toISOString()}#${r.visitor_id ?? "anon"}#${offset + i}`,
+    createdAt: new Date(r.occurred_at).toISOString(),
+    visitorId: r.visitor_id,
+    variant: r.variant,
+    context: r.context,
+    liked: r.liked,
+    disliked: r.disliked,
+    helps: r.helps,
+    wouldPay: r.would_pay,
+    monthlyPrice: r.monthly_price,
   }));
 
   return {

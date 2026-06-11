@@ -3,11 +3,11 @@
 import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { PanelCard } from "@/components/dashboard/panel-card";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle } from "./chart-kit";
-import type { FunnelStep, Project, Range } from "@/lib/dashboard/types";
+import type { FunnelStep, Project, Range, Variant } from "@/lib/dashboard/types";
 
-export function FunnelChart({ project, range }: { project: Project; range: Range }) {
+export function FunnelChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   return (
-    <PanelCard<FunnelStep[]> fn="funnel" title="Conversion funnel" project={project} range={range}>
+    <PanelCard<FunnelStep[]> fn="funnel" title="Conversion funnel" project={project} range={range} variant={variant}>
       {(data) => {
         if (!data.length || data.every((d) => d.count === 0)) return <EmptyState />;
         const top = data[0]?.count || 1;

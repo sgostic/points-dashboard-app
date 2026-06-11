@@ -5,7 +5,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recha
 import { PanelCard } from "@/components/dashboard/panel-card";
 import { Button } from "@/components/ui/primitives";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle, countFormatter } from "./chart-kit";
-import type { Discovery, NameCount, Project, Range } from "@/lib/dashboard/types";
+import type { Discovery, NameCount, Project, Range, Variant } from "@/lib/dashboard/types";
 
 type Tab = "interests" | "mapPins" | "tripModals";
 const TABS: { key: Tab; label: string }[] = [
@@ -14,10 +14,10 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "tripModals", label: "Trip modals" },
 ];
 
-export function DiscoveryChart({ project, range }: { project: Project; range: Range }) {
+export function DiscoveryChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   const [tab, setTab] = useState<Tab>("interests");
   return (
-    <PanelCard<Discovery> fn="discovery" title="Discovery signals" project={project} range={range}>
+    <PanelCard<Discovery> fn="discovery" title="Discovery signals" project={project} range={range} variant={variant}>
       {(data) => {
         const series: NameCount[] = data[tab];
         return (

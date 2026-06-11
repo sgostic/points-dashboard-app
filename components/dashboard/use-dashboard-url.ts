@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
-import { isProject, isRange, type Project, type Range } from "@/lib/dashboard/types";
+import { isProject, isRange, isVariant, type Project, type Range, type Variant } from "@/lib/dashboard/types";
 
 export function useDashboardUrl() {
   const router = useRouter();
@@ -13,6 +13,8 @@ export function useDashboardUrl() {
   const project: Project = isProject(projectParam) ? projectParam : "guide";
   const rangeParam = sp.get("range");
   const range: Range = isRange(rangeParam) ? rangeParam : "30d";
+  const variantParam = sp.get("variant");
+  const variant: Variant = isVariant(variantParam) ? variantParam : "all";
   const page = Math.max(1, Number(sp.get("page")) || 1);
   const search = sp.get("search") ?? "";
   const conversationId = sp.get("conversationId");
@@ -29,5 +31,5 @@ export function useDashboardUrl() {
     [router, pathname, sp],
   );
 
-  return { project, range, page, search, conversationId, setParams };
+  return { project, range, variant, page, search, conversationId, setParams };
 }

@@ -3,11 +3,11 @@
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PanelCard } from "@/components/dashboard/panel-card";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle, countFormatter } from "./chart-kit";
-import type { NameCount, Project, Range } from "@/lib/dashboard/types";
+import type { NameCount, Project, Range, Variant } from "@/lib/dashboard/types";
 
-export function TopEventsChart({ project, range }: { project: Project; range: Range }) {
+export function TopEventsChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   return (
-    <PanelCard<NameCount[]> fn="top-events" title="Top events" project={project} range={range}>
+    <PanelCard<NameCount[]> fn="top-events" title="Top events" project={project} range={range} variant={variant}>
       {(data) => {
         if (!data.length) return <EmptyState />;
         return (

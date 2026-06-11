@@ -3,8 +3,11 @@
 import { useDashboardUrl } from "./use-dashboard-url";
 import { ProjectSwitcher } from "./project-switcher";
 import { RangeControl } from "./range-control";
+import { VariantFilter } from "./variant-filter";
+import { Legend } from "./legend";
 import { KpiCards } from "./kpi-cards";
 import { ChatExplorer } from "./chat-explorer";
+import { FeedbackExplorer } from "./feedback-explorer";
 import { FunnelChart } from "./charts/funnel";
 import { EventsOverTimeChart } from "./charts/events-over-time";
 import { TopEventsChart } from "./charts/top-events";
@@ -14,7 +17,7 @@ import { DiscoveryChart } from "./charts/discovery";
 import { PROJECT_LABELS } from "@/lib/dashboard/types";
 
 export function DashboardClient() {
-  const { project, range, page, search, conversationId, setParams } = useDashboardUrl();
+  const { project, range, variant, page, search, conversationId, setParams } = useDashboardUrl();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 space-y-6">
@@ -27,21 +30,25 @@ export function DashboardClient() {
 
       <ProjectSwitcher active={project} onSelect={(p) => setParams({ project: p, page: 1, conversationId: null })} />
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink-secondary">Overview</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <VariantFilter value={variant} onChange={(v) => setParams({ variant: v === "all" ? null : v })} />
         <RangeControl value={range} onChange={(r) => setParams({ range: r })} />
       </div>
 
-      <KpiCards project={project} range={range} />
+      <Legend />
+
+      <KpiCards project={project} range={range} variant={variant} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <FunnelChart project={project} range={range} />
-        <EventsOverTimeChart project={project} range={range} />
-        <TopEventsChart project={project} range={range} />
-        <EngagementChart project={project} range={range} />
-        <MonetizationChart project={project} range={range} />
-        <DiscoveryChart project={project} range={range} />
+        <FunnelChart project={project} range={range} variant={variant} />
+        <EventsOverTimeChart project={project} range={range} variant={variant} />
+        <TopEventsChart project={project} range={range} variant={variant} />
+        <EngagementChart project={project} range={range} variant={variant} />
+        <MonetizationChart project={project} range={range} variant={variant} />
+        <DiscoveryChart project={project} range={range} variant={variant} />
       </div>
+
+      <FeedbackExplorer project={project} range={range} variant={variant} />
 
       <ChatExplorer
         project={project}

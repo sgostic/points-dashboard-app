@@ -7,13 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/compo
 import { PanelBody } from "@/components/dashboard/panel-card";
 import { fetchPanel, panelKey, type ApiResult } from "@/lib/dashboard/api-client";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle } from "./chart-kit";
-import type { EventsOverTime, Project, Range } from "@/lib/dashboard/types";
+import type { EventsOverTime, Project, Range, Variant } from "@/lib/dashboard/types";
 
-export function EventsOverTimeChart({ project, range }: { project: Project; range: Range }) {
+export function EventsOverTimeChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   const [breakout, setBreakout] = useState(false);
   const query = useQuery({
-    queryKey: panelKey("events-over-time", project, range),
-    queryFn: () => fetchPanel<EventsOverTime>("events-over-time", { project, range }),
+    queryKey: panelKey("events-over-time", project, range, { variant }),
+    queryFn: () => fetchPanel<EventsOverTime>("events-over-time", { project, range, variant }),
   });
 
   return (

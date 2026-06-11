@@ -3,11 +3,11 @@
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PanelCard } from "@/components/dashboard/panel-card";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle, countFormatter } from "./chart-kit";
-import type { Engagement, Project, Range } from "@/lib/dashboard/types";
+import type { Engagement, Project, Range, Variant } from "@/lib/dashboard/types";
 
-export function EngagementChart({ project, range }: { project: Project; range: Range }) {
+export function EngagementChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   return (
-    <PanelCard<Engagement> fn="engagement" title="Engagement depth" project={project} range={range}>
+    <PanelCard<Engagement> fn="engagement" title="Engagement depth" project={project} range={range} variant={variant}>
       {(data) => {
         const hasScroll = data.scrollDepth.length > 0;
         const hasDur = data.durationBuckets.length > 0;

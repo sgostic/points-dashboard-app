@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { fetchPanel, panelKey, isApiError } from "@/lib/dashboard/api-client";
-import type { Project, Range, Kpis } from "@/lib/dashboard/types";
+import type { Project, Range, Variant, Kpis } from "@/lib/dashboard/types";
 
 function fmtDuration(ms: number | null): string {
   if (ms == null) return "—";
@@ -25,10 +25,10 @@ function fmtDuration(ms: number | null): string {
   return `${m}m ${s % 60}s`;
 }
 
-export function KpiCards({ project, range }: { project: Project; range: Range }) {
+export function KpiCards({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   const { data, isLoading } = useQuery({
-    queryKey: panelKey("kpis", project, range),
-    queryFn: () => fetchPanel<Kpis>("kpis", { project, range }),
+    queryKey: panelKey("kpis", project, range, { variant }),
+    queryFn: () => fetchPanel<Kpis>("kpis", { project, range, variant }),
   });
 
   const k = data && !isApiError(data) ? data : null;

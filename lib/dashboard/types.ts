@@ -2,6 +2,22 @@ export type Project = "guide" | "butler";
 
 export type Range = "7d" | "30d" | "all";
 
+export type Variant = "all" | "a" | "b" | "c" | "d";
+
+export const VARIANTS: Variant[] = ["all", "a", "b", "c", "d"];
+
+export const VARIANT_LABELS: Record<Variant, string> = {
+  all: "All",
+  a: "A",
+  b: "B",
+  c: "C",
+  d: "D",
+};
+
+export function isVariant(v: unknown): v is Variant {
+  return v === "all" || v === "a" || v === "b" || v === "c" || v === "d";
+}
+
 export const PROJECTS: Project[] = ["guide", "butler"];
 
 export const PROJECT_LABELS: Record<Project, string> = {
@@ -15,6 +31,12 @@ export function isProject(v: unknown): v is Project {
 
 export function isRange(v: unknown): v is Range {
   return v === "7d" || v === "30d" || v === "all";
+}
+
+export interface EventLegendEntry {
+  event: string;
+  label: string;
+  description: string;
 }
 
 export interface Kpis {
@@ -89,4 +111,24 @@ export interface ChatMessage {
   role: string;
   content: string;
   createdAt: string;
+}
+
+export interface FeedbackSubmission {
+  id: string;
+  createdAt: string;
+  visitorId: string | null;
+  variant: string | null;
+  context: string | null;
+  liked: string | null;
+  disliked: string | null;
+  helps: string | null;
+  wouldPay: string | null;
+  monthlyPrice: string | null;
+}
+
+export interface FeedbackSubmissionsPage {
+  rows: FeedbackSubmission[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Database } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge } from "@/components/ui/primitives";
 import { fetchPanel, panelKey, isNotConfigured, type ApiResult } from "@/lib/dashboard/api-client";
-import type { Project, Range } from "@/lib/dashboard/types";
+import type { Project, Range, Variant } from "@/lib/dashboard/types";
 
 const RANGE_LABEL: Record<Range, string> = { "7d": "Last 7 days", "30d": "Last 30 days", all: "All time" };
 
@@ -13,6 +13,7 @@ export function PanelCard<T>({
   title,
   project,
   range,
+  variant,
   children,
   className,
   bodyClassName = "h-64",
@@ -21,13 +22,14 @@ export function PanelCard<T>({
   title: string;
   project: Project;
   range: Range;
+  variant: Variant;
   children: (data: T) => React.ReactNode;
   className?: string;
   bodyClassName?: string;
 }) {
   const query = useQuery({
-    queryKey: panelKey(fn, project, range),
-    queryFn: () => fetchPanel<T>(fn, { project, range }),
+    queryKey: panelKey(fn, project, range, { variant }),
+    queryFn: () => fetchPanel<T>(fn, { project, range, variant }),
   });
 
   return (
