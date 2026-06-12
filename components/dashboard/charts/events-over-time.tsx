@@ -5,15 +5,17 @@ import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart, ResponsiveCont
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from "@/components/ui/primitives";
 import { PanelBody } from "@/components/dashboard/panel-card";
-import { fetchPanel, panelKey, type ApiResult } from "@/lib/dashboard/api-client";
+import { useDateRangeBounds } from "@/components/dashboard/date-range-context";
+import { fetchPanel, panelKey, rangeLabel, type ApiResult } from "@/lib/dashboard/api-client";
 import { CHART_COLORS, EmptyState, axisProps, tooltipStyle } from "./chart-kit";
 import type { EventsOverTime, Project, Range, Variant } from "@/lib/dashboard/types";
 
 export function EventsOverTimeChart({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
   const [breakout, setBreakout] = useState(false);
+  const { from, to } = useDateRangeBounds();
   const query = useQuery({
-    queryKey: panelKey("events-over-time", project, range, { variant }),
-    queryFn: () => fetchPanel<EventsOverTime>("events-over-time", { project, range, variant }),
+    queryKey: panelKey("events-over-time", project, range, { variant, from, to }),
+    queryFn: () => fetchPanel<EventsOverTime>("events-over-time", { project, range, variant, from, to }),
   });
 
   return (
@@ -24,7 +26,7 @@ export function EventsOverTimeChart({ project, range, variant }: { project: Proj
           <Button variant={breakout ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => setBreakout((b) => !b)}>
             Break out
           </Button>
-          <Badge>{range === "7d" ? "Last 7 days" : range === "30d" ? "Last 30 days" : "All time"}</Badge>
+          <Badge>{rangeLabel(range, from, to)}</Badge>
         </div>
       </CardHeader>
       <CardContent className="h-64">

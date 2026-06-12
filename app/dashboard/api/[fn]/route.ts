@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isProject, isRange, isVariant, type Project, type Range, type Variant } from "@/lib/dashboard/types";
+import { isProject, isRange, isVariant, isIsoDate, type Project, type Range, type RangeParams, type Variant } from "@/lib/dashboard/types";
 import { isProjectConfigured, ProjectNotConfiguredError } from "@/lib/dashboard/clients";
 import {
   getKpis,
@@ -31,7 +31,19 @@ export async function GET(
   }
 
   const rangeParam = sp.get("range") ?? "30d";
-  const range: Range = isRange(rangeParam) ? rangeParam : "30d";
+  let range: Range = isRange(rangeParam) ? rangeParam : "30d";
+
+  let from: string | undefined;
+  let to: string | undefined;
+  if (range === "custom") {
+    const f = sp.get("from");
+    const t = sp.get("to");
+    from = isIsoDate(f) ? f : undefined;
+    to = isIsoDate(t) ? t : undefined;
+    // A custom range with no valid bounds is meaningless — fall back to 30d.
+    if (!from && !to) range = "30d";
+  }
+  const rp: RangeParams = { range, from, to };
 
   const variantParam = sp.get("variant") ?? "all";
   const variant: Variant = isVariant(variantParam) ? variantParam : "all";
@@ -45,7 +57,7 @@ export async function GET(
   }
 
   try {
-    const data = await dispatch(fn, project, range, variant, sp);
+    const data = await dispatch(fn, project, rp, variant, sp);
     if (data === undefined) {
       return NextResponse.json({ error: `Unknown endpoint "${fn}"` }, { status: 404 });
     }
@@ -65,25 +77,25 @@ export async function GET(
 async function dispatch(
   fn: string,
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant,
   sp: URLSearchParams,
 ): Promise<unknown> {
   switch (fn) {
     case "kpis":
-      return getKpis(project, range, variant);
+      return getKpis(project, rp, variant);
     case "top-events":
-      return getTopEvents(project, range, variant);
+      return getTopEvents(project, rp, variant);
     case "events-over-time":
-      return getEventsOverTime(project, range, variant);
+      return getEventsOverTime(project, rp, variant);
     case "funnel":
-      return getFunnel(project, range, variant);
+      return getFunnel(project, rp, variant);
     case "engagement":
-      return getEngagement(project, range, variant);
+      return getEngagement(project, rp, variant);
     case "monetization":
-      return getMonetization(project, range, variant);
+      return getMonetization(project, rp, variant);
     case "discovery":
-      return getDiscovery(project, range, variant);
+      return getDiscovery(project, rp, variant);
     case "chat-sessions": {
       const page = Math.max(1, Number(sp.get("page")) || 1);
       const pageSize = Math.min(100, Math.max(1, Number(sp.get("pageSize")) || 25));
@@ -93,7 +105,7 @@ async function dispatch(
     case "feedback-submissions": {
       const page = Math.max(1, Number(sp.get("page")) || 1);
       const pageSize = Math.min(100, Math.max(1, Number(sp.get("pageSize")) || 25));
-      return getFeedbackSubmissions(project, range, variant, { page, pageSize });
+      return getFeedbackSubmissions(project, rp, variant, { page, pageSize });
     }
     case "chat-transcript": {
       const conversationId = sp.get("conversationId");

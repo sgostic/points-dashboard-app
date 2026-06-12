@@ -6,6 +6,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { MessageSquareHeart, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Skeleton, Badge } from "@/components/ui/primitives";
 import { fetchPanel, panelKey, isApiError } from "@/lib/dashboard/api-client";
+import { useDateRangeBounds } from "./date-range-context";
 import type { Project, Range, Variant, FeedbackSubmissionsPage, FeedbackSubmission } from "@/lib/dashboard/types";
 
 /** Human-readable question for each feedback input, in display order. */
@@ -30,11 +31,12 @@ export function FeedbackExplorer({
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<FeedbackSubmission | null>(null);
   const pageSize = 25;
+  const { from, to } = useDateRangeBounds();
 
   const list = useQuery({
-    queryKey: panelKey("feedback-submissions", project, range, { variant, page }),
+    queryKey: panelKey("feedback-submissions", project, range, { variant, page, from, to }),
     queryFn: () =>
-      fetchPanel<FeedbackSubmissionsPage>("feedback-submissions", { project, range, variant, page, pageSize }),
+      fetchPanel<FeedbackSubmissionsPage>("feedback-submissions", { project, range, variant, page, pageSize, from, to }),
     placeholderData: keepPreviousData,
   });
 

@@ -2,7 +2,7 @@ import "server-only";
 import { query } from "./clients";
 import type {
   Project,
-  Range,
+  RangeParams,
   Variant,
   Kpis,
   EventsOverTime,
@@ -19,10 +19,21 @@ import type {
   FeedbackSubmission,
 } from "./types";
 
-/** SQL fragment limiting `events.occurred_at` to the selected range. */
-function rangeClause(range: Range, col = "occurred_at"): string {
-  if (range === "7d") return `${col} >= now() - interval '7 days'`;
-  if (range === "30d") return `${col} >= now() - interval '30 days'`;
+/**
+ * SQL fragment limiting `events.occurred_at` to the selected range. For a
+ * `"custom"` range the inclusive `from`/`to` bounds are validated as strict
+ * `YYYY-MM-DD` dates upstream, so inlining them here is safe. `to` is treated
+ * as inclusive of the whole day via `< to + 1 day`.
+ */
+function rangeClause(rp: RangeParams, col = "occurred_at"): string {
+  if (rp.range === "custom") {
+    const parts: string[] = [];
+    if (rp.from) parts.push(`${col} >= '${rp.from}'::date`);
+    if (rp.to) parts.push(`${col} < ('${rp.to}'::date + interval '1 day')`);
+    return parts.length ? parts.join(" and ") : "true";
+  }
+  if (rp.range === "7d") return `${col} >= now() - interval '7 days'`;
+  if (rp.range === "30d") return `${col} >= now() - interval '30 days'`;
   return "true";
 }
 
@@ -43,10 +54,10 @@ function num(v: unknown): number {
 
 export async function getKpis(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<Kpis> {
-  const where = rangeClause(range) + variantClause(variant);
+  const where = rangeClause(rp) + variantClause(variant);
   const rows = await query<{
     unique_visitors: string;
     sessions: string;
@@ -98,7 +109,7 @@ export async function getKpis(
 
 export async function getTopEvents(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<NameCount[]> {
   const rows = await query<{ event_name: string; count: string }>(
@@ -106,7 +117,7 @@ export async function getTopEvents(
     `
     select event_name, count(*) as count
     from events
-    where ${rangeClause(range)}${variantClause(variant)}
+    where ${rangeClause(rp)}${variantClause(variant)}
     group by event_name
     order by count desc
     limit 15
@@ -117,10 +128,10 @@ export async function getTopEvents(
 
 export async function getEventsOverTime(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<EventsOverTime> {
-  const where = rangeClause(range) + variantClause(variant);
+  const where = rangeClause(rp) + variantClause(variant);
 
   const topRows = await query<{ event_name: string }>(
     project,
@@ -173,7 +184,7 @@ export async function getEventsOverTime(
 
 export async function getFunnel(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<FunnelStep[]> {
   const steps: { key: string; label: string }[] = [
@@ -188,7 +199,7 @@ export async function getFunnel(
     `
     select event_name, count(*) as count
     from events
-    where ${rangeClause(range)} and event_name = any($1)${variantClause(variant)}
+    where ${rangeClause(rp)} and event_name = any($1)${variantClause(variant)}
     group by event_name
     `,
     [steps.map((s) => s.key)],
@@ -199,10 +210,10 @@ export async function getFunnel(
 
 export async function getEngagement(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<Engagement> {
-  const where = rangeClause(range) + variantClause(variant);
+  const where = rangeClause(rp) + variantClause(variant);
 
   const scroll = await query<{ pct: string; count: string }>(
     project,
@@ -248,10 +259,10 @@ export async function getEngagement(
 
 export async function getMonetization(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<Monetization> {
-  const where = rangeClause(range) + variantClause(variant);
+  const where = rangeClause(rp) + variantClause(variant);
 
   const wouldPay = await query<{ would_pay: string; count: string }>(
     project,
@@ -282,10 +293,10 @@ export async function getMonetization(
 
 export async function getDiscovery(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant = "all",
 ): Promise<Discovery> {
-  const where = rangeClause(range) + variantClause(variant);
+  const where = rangeClause(rp) + variantClause(variant);
 
   const interests = await query<{ tag: string; count: string }>(
     project,
@@ -392,12 +403,12 @@ export async function getChatSessions(
 
 export async function getFeedbackSubmissions(
   project: Project,
-  range: Range,
+  rp: RangeParams,
   variant: Variant,
   { page, pageSize }: { page: number; pageSize: number },
 ): Promise<FeedbackSubmissionsPage> {
   const offset = Math.max(0, (page - 1) * pageSize);
-  const where = rangeClause(range) + variantClause(variant);
+  const where = rangeClause(rp) + variantClause(variant);
 
   const totalRows = await query<{ total: string }>(
     project,

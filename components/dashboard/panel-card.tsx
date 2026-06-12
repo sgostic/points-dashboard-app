@@ -3,10 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Database } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge } from "@/components/ui/primitives";
-import { fetchPanel, panelKey, isNotConfigured, type ApiResult } from "@/lib/dashboard/api-client";
+import { fetchPanel, panelKey, rangeLabel, isNotConfigured, type ApiResult } from "@/lib/dashboard/api-client";
+import { useDateRangeBounds } from "./date-range-context";
 import type { Project, Range, Variant } from "@/lib/dashboard/types";
-
-const RANGE_LABEL: Record<Range, string> = { "7d": "Last 7 days", "30d": "Last 30 days", all: "All time" };
 
 export function PanelCard<T>({
   fn,
@@ -27,16 +26,17 @@ export function PanelCard<T>({
   className?: string;
   bodyClassName?: string;
 }) {
+  const { from, to } = useDateRangeBounds();
   const query = useQuery({
-    queryKey: panelKey(fn, project, range, { variant }),
-    queryFn: () => fetchPanel<T>(fn, { project, range, variant }),
+    queryKey: panelKey(fn, project, range, { variant, from, to }),
+    queryFn: () => fetchPanel<T>(fn, { project, range, variant, from, to }),
   });
 
   return (
     <Card className={className}>
       <CardHeader className="flex items-center justify-between flex-row">
         <CardTitle>{title}</CardTitle>
-        <Badge>{RANGE_LABEL[range]}</Badge>
+        <Badge>{rangeLabel(range, from, to)}</Badge>
       </CardHeader>
       <CardContent className={bodyClassName}>
         <PanelBody query={query}>{children}</PanelBody>

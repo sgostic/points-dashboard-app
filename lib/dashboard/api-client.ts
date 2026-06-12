@@ -1,6 +1,20 @@
 "use client";
 
+import { format } from "date-fns";
 import type { Project, Range } from "./types";
+
+/** Short, human-readable label for a range — including a custom from–to span. */
+export function rangeLabel(range: Range, from?: string, to?: string): string {
+  if (range === "7d") return "Last 7 days";
+  if (range === "30d") return "Last 30 days";
+  if (range === "all") return "All time";
+  // custom — `from`/`to` are YYYY-MM-DD; parse as local dates for display.
+  const fmt = (d: string) => format(new Date(`${d}T00:00:00`), "MMM d, yyyy");
+  if (from && to) return `${fmt(from)} – ${fmt(to)}`;
+  if (from) return `From ${fmt(from)}`;
+  if (to) return `Until ${fmt(to)}`;
+  return "Custom range";
+}
 
 export type ApiResult<T> = T | { error: string; message?: string };
 

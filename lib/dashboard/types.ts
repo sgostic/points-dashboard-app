@@ -1,6 +1,23 @@
 export type Project = "guide" | "butler";
 
-export type Range = "7d" | "30d" | "all";
+export type Range = "7d" | "30d" | "all" | "custom";
+
+/**
+ * A resolved date filter. `from`/`to` (inclusive, `YYYY-MM-DD`) are only
+ * meaningful when `range === "custom"`; for the presets they are ignored.
+ */
+export interface RangeParams {
+  range: Range;
+  from?: string;
+  to?: string;
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** True for a strict `YYYY-MM-DD` calendar date — safe to inline into SQL. */
+export function isIsoDate(v: unknown): v is string {
+  return typeof v === "string" && ISO_DATE.test(v) && !Number.isNaN(Date.parse(v));
+}
 
 export type Variant = "all" | "a" | "b" | "c" | "d";
 
@@ -30,7 +47,7 @@ export function isProject(v: unknown): v is Project {
 }
 
 export function isRange(v: unknown): v is Range {
-  return v === "7d" || v === "30d" || v === "all";
+  return v === "7d" || v === "30d" || v === "all" || v === "custom";
 }
 
 export interface EventLegendEntry {

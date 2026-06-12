@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { fetchPanel, panelKey, isApiError } from "@/lib/dashboard/api-client";
+import { useDateRangeBounds } from "./date-range-context";
 import type { Project, Range, Variant, Kpis } from "@/lib/dashboard/types";
 
 function fmtDuration(ms: number | null): string {
@@ -26,9 +27,10 @@ function fmtDuration(ms: number | null): string {
 }
 
 export function KpiCards({ project, range, variant }: { project: Project; range: Range; variant: Variant }) {
+  const { from, to } = useDateRangeBounds();
   const { data, isLoading } = useQuery({
-    queryKey: panelKey("kpis", project, range, { variant }),
-    queryFn: () => fetchPanel<Kpis>("kpis", { project, range, variant }),
+    queryKey: panelKey("kpis", project, range, { variant, from, to }),
+    queryFn: () => fetchPanel<Kpis>("kpis", { project, range, variant, from, to }),
   });
 
   const k = data && !isApiError(data) ? data : null;
