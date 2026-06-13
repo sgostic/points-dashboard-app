@@ -64,6 +64,7 @@ export async function getKpis(
     signups: string;
     signins: string;
     pay_intent: string;
+    feedback_opened: string;
     feedback: string;
     alerts_created: string;
     email_subscribed: string;
@@ -77,6 +78,7 @@ export async function getKpis(
       count(*) filter (where event_name = 'signup_completed')             as signups,
       count(*) filter (where event_name = 'signin_completed')             as signins,
       count(*) filter (where event_name = 'pay_intent')                   as pay_intent,
+      count(*) filter (where event_name = 'feedback_opened')              as feedback_opened,
       count(*) filter (where event_name = 'feedback_submitted')           as feedback,
       count(*) filter (where event_name = 'alert_created')                as alerts_created,
       count(*) filter (where event_name = 'email_subscribed')             as email_subscribed,
@@ -99,6 +101,7 @@ export async function getKpis(
     signups: num(r.signups),
     signins: num(r.signins),
     payIntent: num(r.pay_intent),
+    feedbackOpened: num(r.feedback_opened),
     feedback: num(r.feedback),
     alertsCreated: num(r.alerts_created),
     emailSubscribed: num(r.email_subscribed),

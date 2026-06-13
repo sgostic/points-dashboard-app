@@ -62,6 +62,7 @@ export interface Kpis {
   signups: number;
   signins: number;
   payIntent: number;
+  feedbackOpened: number;
   feedback: number;
   alertsCreated: number;
   emailSubscribed: number;

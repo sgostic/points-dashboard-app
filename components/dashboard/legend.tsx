@@ -33,6 +33,7 @@ const LEGEND: { group: string; entries: EventLegendEntry[] }[] = [
   {
     group: "Feedback & monetization",
     entries: [
+      { event: "feedback_opened", label: "Feedback opened", description: "The feedback modal was opened — before any answers are submitted." },
       { event: "feedback_submitted", label: "Feedback", description: "Feedback modal submitted — includes like/dislike, would-pay and price answers." },
       { event: "pay_intent", label: "Pay intent", description: "Feedback indicated willingness to pay (would-pay ≠ \"no\") — a monetization signal, not an actual charge." },
       { event: "email_subscribed", label: "Email subscribed", description: "Visitor subscribed via an alert / email CTA." },
