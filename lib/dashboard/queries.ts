@@ -39,12 +39,30 @@ function rangeClause(rp: RangeParams, col = "occurred_at"): string {
 
 /**
  * SQL fragment restricting to a single A/B/C/D variant. Returns `""` for
- * "all". `variant` is validated upstream to one of a/b/c/d, so inlining the
- * literal here is safe (no untrusted input reaches the query string).
+ * "all". Newer analytics rows store variant as a top-level column; keep the
+ * JSON fallback so older rows that only carried it in properties still count.
+ * `variant` is validated upstream to one of a/b/c/d, so inlining the literal
+ * here is safe (no untrusted input reaches the query string).
  */
 function variantClause(variant: Variant): string {
   if (variant === "all") return "";
-  return ` and properties->>'variant' = '${variant}'`;
+  return ` and coalesce(variant, properties->>'variant') = '${variant}'`;
+}
+
+/**
+ * `chat_messages` is a normalized table and does not carry the analytics
+ * event's variant column. Attribute chat conversations to a variant through
+ * the same visitor's event rows.
+ */
+function chatVariantClause(variant: Variant): string {
+  if (variant === "all") return "";
+  return `
+    and exists (
+      select 1
+      from events e
+      where e.visitor_id = cm.visitor_id
+        and coalesce(e.variant, e.properties->>'variant') = '${variant}'
+    )`;
 }
 
 function num(v: unknown): number {
@@ -91,7 +109,11 @@ export async function getKpis(
 
   const chatRows = await query<{ chat_sessions: string }>(
     project,
-    `select count(distinct conversation_id) as chat_sessions from chat_messages`,
+    `
+    select count(distinct cm.conversation_id) as chat_sessions
+    from chat_messages cm
+    where ${rangeClause(rp, "cm.created_at")}${chatVariantClause(variant)}
+    `,
   );
 
   const r = rows[0] ?? ({} as Record<string, string>);
@@ -340,20 +362,22 @@ export async function getDiscovery(
 
 export async function getChatSessions(
   project: Project,
+  rp: RangeParams,
+  variant: Variant,
   { page, pageSize, search }: { page: number; pageSize: number; search?: string },
 ): Promise<ChatSessionsPage> {
   const offset = Math.max(0, (page - 1) * pageSize);
   const hasSearch = Boolean(search?.trim());
   const params: unknown[] = [];
-  let filter = "";
+  let filter = `where ${rangeClause(rp, "cm.created_at")}${chatVariantClause(variant)}`;
   if (hasSearch) {
     params.push(`%${search!.trim()}%`);
-    filter = `where user_id::text ilike $${params.length} or visitor_id::text ilike $${params.length}`;
+    filter += ` and (cm.user_id::text ilike $${params.length} or cm.visitor_id::text ilike $${params.length})`;
   }
 
   const totalRows = await query<{ total: string }>(
     project,
-    `select count(distinct conversation_id) as total from chat_messages ${filter}`,
+    `select count(distinct cm.conversation_id) as total from chat_messages cm ${filter}`,
     params,
   );
 
@@ -370,16 +394,16 @@ export async function getChatSessions(
     project,
     `
     select
-      conversation_id,
-      max(user_id::text)    as user_id,
-      max(visitor_id::text) as visitor_id,
+      cm.conversation_id,
+      max(cm.user_id::text)    as user_id,
+      max(cm.visitor_id::text) as visitor_id,
       count(*)              as message_count,
-      min(created_at)       as first_at,
-      max(created_at)       as last_at,
-      (array_agg(content order by created_at desc))[1] as last_snippet
-    from chat_messages
+      min(cm.created_at)       as first_at,
+      max(cm.created_at)       as last_at,
+      (array_agg(cm.content order by cm.created_at desc))[1] as last_snippet
+    from chat_messages cm
     ${filter}
-    group by conversation_id
+    group by cm.conversation_id
     order by last_at desc
     limit $${limitParams.length - 1} offset $${limitParams.length}
     `,

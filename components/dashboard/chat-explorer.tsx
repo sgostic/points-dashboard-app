@@ -8,27 +8,43 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Skeleton, Badge } fro
 import { ChatBubble } from "./chat-bubble";
 import { fetchPanel, panelKey, isApiError } from "@/lib/dashboard/api-client";
 import { cn } from "@/lib/utils";
-import type { Project, ChatSessionsPage, ChatSessionRow, ChatMessage } from "@/lib/dashboard/types";
+import { useDateRangeBounds } from "./date-range-context";
+import type { Project, Range, Variant, ChatSessionsPage, ChatSessionRow, ChatMessage } from "@/lib/dashboard/types";
 
 export function ChatExplorer({
   project,
+  range,
+  variant,
   page,
   search,
   conversationId,
   onSetParams,
 }: {
   project: Project;
+  range: Range;
+  variant: Variant;
   page: number;
   search: string;
   conversationId: string | null;
   onSetParams: (u: Record<string, string | number | null>) => void;
 }) {
+  const { from, to } = useDateRangeBounds();
   const [searchInput, setSearchInput] = useState(search);
   const pageSize = 25;
 
   const list = useQuery({
-    queryKey: panelKey("chat-sessions", project, null, { page, search }),
-    queryFn: () => fetchPanel<ChatSessionsPage>("chat-sessions", { project, page, pageSize, search }),
+    queryKey: panelKey("chat-sessions", project, range, { variant, page, search, from, to }),
+    queryFn: () =>
+      fetchPanel<ChatSessionsPage>("chat-sessions", {
+        project,
+        range,
+        variant,
+        page,
+        pageSize,
+        search,
+        from,
+        to,
+      }),
     placeholderData: keepPreviousData,
   });
 

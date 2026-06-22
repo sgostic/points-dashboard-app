@@ -65,6 +65,8 @@ export function DashboardClient() {
 
         <ChatExplorer
           project={project}
+          range={range}
+          variant={variant}
           page={page}
           search={search}
           conversationId={conversationId}

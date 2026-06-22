@@ -100,7 +100,7 @@ async function dispatch(
       const page = Math.max(1, Number(sp.get("page")) || 1);
       const pageSize = Math.min(100, Math.max(1, Number(sp.get("pageSize")) || 25));
       const search = sp.get("search") ?? undefined;
-      return getChatSessions(project, { page, pageSize, search });
+      return getChatSessions(project, rp, variant, { page, pageSize, search });
     }
     case "feedback-submissions": {
       const page = Math.max(1, Number(sp.get("page")) || 1);
