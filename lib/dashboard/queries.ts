@@ -46,7 +46,7 @@ function rangeClause(rp: RangeParams, col = "occurred_at"): string {
  */
 function variantClause(variant: Variant): string {
   if (variant === "all") return "";
-  return ` and coalesce(variant, properties->>'variant') = '${variant}'`;
+  return ` and coalesce(variant::text, properties->>'variant') = '${variant}'`;
 }
 
 /**
@@ -61,7 +61,7 @@ function chatVariantClause(variant: Variant): string {
       select 1
       from events e
       where e.visitor_id = cm.visitor_id
-        and coalesce(e.variant, e.properties->>'variant') = '${variant}'
+        and coalesce(e.variant::text, e.properties->>'variant') = '${variant}'
     )`;
 }
 
