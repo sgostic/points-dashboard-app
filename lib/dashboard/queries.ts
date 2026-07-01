@@ -9,6 +9,10 @@ import type {
   TimePoint,
   NameCount,
   FunnelStep,
+  OnboardingDropoffStep,
+  OnboardingEmails,
+  OnboardingEmailLead,
+  OnboardingQuestionBreakdown,
   Engagement,
   Monetization,
   Discovery,
@@ -63,6 +67,78 @@ function chatVariantClause(variant: Variant): string {
       where e.visitor_id = cm.visitor_id
         and coalesce(e.variant::text, e.properties->>'variant') = '${variant}'
     )`;
+}
+
+function distinctActorExpr(alias?: string): string {
+  const prefix = alias ? `${alias}.` : "";
+  return `coalesce(${prefix}session_id::text, ${prefix}visitor_id::text)`;
+}
+
+const ONBOARDING_QUESTIONS: Record<Project, Array<{ id: string; label: string; options: string[] }>> = {
+  guide: [
+    { id: "frequency", label: "How many times do you travel a year?", options: ["1 – 2", "3 – 5", "6+"] },
+    { id: "companions", label: "Who do you travel with?", options: ["Alone", "Partner", "Family"] },
+    {
+      id: "rewards",
+      label: "Which rewards do you currently have?",
+      options: ["Chase", "Amex", "Capital One", "Citi", "Airline miles", "Hotel points", "Not sure", "Other"],
+    },
+    {
+      id: "balance",
+      label: "About how many points or miles do you have?",
+      options: ["Under 50,000", "50,000 – 150,000", "150,000 – 300,000", "300,000+"],
+    },
+    { id: "priority", label: "What is your priority?", options: ["Flights", "Hotels", "Cashback", "All above"] },
+    {
+      id: "challenge",
+      label: "What's the hardest part about using your points?",
+      options: [
+        "Knowing if points are worth using",
+        "Choosing cash vs. points",
+        "Figuring out where to transfer",
+        "Finding the best trip / redemption",
+        "Picking the right card to use",
+        "Tracking everything",
+        "Knowing whether to save points for later",
+      ],
+    },
+  ],
+  butler: [
+    { id: "travel_frequency", label: "How many times do you travel a year?", options: ["1 – 2", "3 – 5", "6+"] },
+    { id: "travel_companions", label: "Who do you travel with?", options: ["Alone", "Partner", "Family"] },
+    {
+      id: "rewards_held",
+      label: "Which rewards do you currently have?",
+      options: ["Chase", "Amex", "Capital One", "Citi", "Airline miles", "Hotel points", "Not sure", "Other"],
+    },
+    {
+      id: "points_balance",
+      label: "About how many points or miles do you have?",
+      options: ["Under 50,000", "50,000 – 150,000", "150,000 – 300,000", "300,000+"],
+    },
+    { id: "priority", label: "What is your priority?", options: ["Flights", "Hotels", "Cashback", "All above"] },
+    {
+      id: "hardest_part",
+      label: "What's the hardest part about using your points?",
+      options: [
+        "Knowing if points are worth using",
+        "Choosing cash vs. points",
+        "Figuring out where to transfer",
+        "Finding the best trip / redemption",
+        "Picking the right card to use",
+        "Tracking everything",
+        "Knowing whether to save points for later",
+      ],
+    },
+  ],
+};
+
+function normalizeAnswer(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("Other:")) return "Other";
+  return trimmed;
 }
 
 function num(v: unknown): number {
@@ -231,6 +307,296 @@ export async function getFunnel(
   );
   const counts = new Map(rows.map((r) => [r.event_name, num(r.count)]));
   return steps.map((s) => ({ step: s.label, count: counts.get(s.key) ?? 0 }));
+}
+
+/**
+ * The /start onboarding flows are project-scoped and do not persist the
+ * landing-page A/B variant on either the raw events or the normalized email
+ * rows. These queries intentionally ignore the dashboard's variant filter.
+ */
+export async function getOnboardingDropoff(
+  project: Project,
+  rp: RangeParams,
+  _variant: Variant = "all",
+): Promise<OnboardingDropoffStep[]> {
+  void _variant;
+  const where = rangeClause(rp);
+  const identity = distinctActorExpr();
+
+  const stepMeta = project === "guide"
+    ? await query<{ step_number: string; detail: string | null }>(
+        project,
+        `
+        select
+          ((properties->>'stepIndex')::int + 1) as step_number,
+          min(properties->>'stepId')            as detail
+        from events
+        where ${where}
+          and event_name = 'onboarding_step_viewed'
+          and properties->>'stepIndex' is not null
+        group by 1
+        order by 1
+        `,
+      )
+    : await query<{ step_number: string; detail: string | null }>(
+        project,
+        `
+        select
+          (properties->>'step')::int                                  as step_number,
+          min(coalesce(properties->>'questionId', properties->>'question')) as detail
+        from events
+        where ${where}
+          and event_name = 'onboarding_step_viewed'
+          and properties->>'step' is not null
+        group by 1
+        order by 1
+        `,
+      );
+
+  const stepCompletions = project === "guide"
+    ? await query<{ step_number: string; completed: string }>(
+        project,
+        `
+        select
+          ((properties->>'stepIndex')::int + 1) as step_number,
+          count(distinct ${identity})           as completed
+        from events
+        where ${where}
+          and event_name = 'onboarding_step_answered'
+          and properties->>'stepIndex' is not null
+        group by 1
+        order by 1
+        `,
+      )
+    : await query<{ step_number: string; completed: string }>(
+        project,
+        `
+        select
+          (properties->>'step')::int          as step_number,
+          count(distinct ${identity})         as completed
+        from events
+        where ${where}
+          and event_name = 'onboarding_question_answered'
+          and properties->>'step' is not null
+        group by 1
+        order by 1
+        `,
+      );
+
+  const exits = project === "guide"
+    ? await query<{ step_number: string; exits: string }>(
+        project,
+        `
+        select
+          ((properties->>'stepIndex')::int + 1) as step_number,
+          count(distinct ${identity})           as exits
+        from events
+        where ${where}
+          and event_name = 'onboarding_exited'
+          and properties->>'stepIndex' is not null
+        group by 1
+        `,
+      )
+    : await query<{ step_number: string; exits: string }>(
+        project,
+        `
+        select
+          (properties->>'step')::int        as step_number,
+          count(distinct ${identity})       as exits
+        from events
+        where ${where}
+          and event_name = 'onboarding_exited'
+          and properties->>'step' is not null
+        group by 1
+        `,
+      );
+
+  const completion = await query<{ completed: string; emailed: string; skipped: string }>(
+    project,
+    `
+    select
+      count(distinct ${identity}) filter (where event_name = 'onboarding_completed') as completed,
+      count(distinct ${identity}) filter (where event_name = 'onboarding_email_submitted') as emailed,
+      count(distinct ${identity}) filter (where event_name = 'onboarding_skipped') as skipped
+    from events
+    where ${where}
+      and event_name in ('onboarding_completed', 'onboarding_email_submitted', 'onboarding_skipped')
+    `,
+  );
+
+  const questions = stepMeta.map((row) => ({
+    stepNumber: num(row.step_number),
+    detail: row.detail,
+  }));
+  const completedByStep = new Map(stepCompletions.map((row) => [num(row.step_number), num(row.completed)]));
+  const exitsByStep = new Map(exits.map((row) => [num(row.step_number), num(row.exits)]));
+  const questionnaireCompleted = num(completion[0]?.completed);
+  const emailed = num(completion[0]?.emailed);
+  const skipped = num(completion[0]?.skipped);
+
+  const steps: OnboardingDropoffStep[] = questions.map((step) => ({
+      stepNumber: step.stepNumber,
+      stepLabel: `Step ${step.stepNumber}`,
+      detail: step.detail,
+      completed: completedByStep.get(step.stepNumber) ?? 0,
+      exits: exitsByStep.get(step.stepNumber) ?? 0,
+    }));
+
+  if (questions.length > 0 || questionnaireCompleted > 0 || emailed > 0 || skipped > 0) {
+    steps.push({
+      stepNumber: (questions[questions.length - 1]?.stepNumber ?? 0) + 1,
+      stepLabel: "Email",
+      detail: "Email capture",
+      completed: emailed + skipped,
+      exits: 0,
+    });
+  }
+
+  return steps;
+}
+
+export async function getOnboardingEmails(
+  project: Project,
+  rp: RangeParams,
+  _variant: Variant = "all",
+): Promise<OnboardingEmails> {
+  void _variant;
+  const where = `${rangeClause(rp, "created_at")} and source = 'onboarding'`;
+
+  const totals = await query<{ total: string }>(
+    project,
+    `
+    select count(*) as total
+    from email_subscriptions
+    where ${where}
+    `,
+  );
+
+  const rows = await query<{ email: string; created_at: string }>(
+    project,
+    `
+    select email, created_at
+    from email_subscriptions
+    where ${where}
+    order by created_at desc, id desc
+    `,
+  );
+
+  const mapped: OnboardingEmailLead[] = rows.map((row) => ({
+    email: row.email,
+    createdAt: new Date(row.created_at).toISOString(),
+  }));
+
+  return {
+    total: num(totals[0]?.total),
+    rows: mapped,
+  };
+}
+
+export async function getOnboardingAnswerBreakdowns(
+  project: Project,
+  rp: RangeParams,
+  _variant: Variant = "all",
+): Promise<OnboardingQuestionBreakdown[]> {
+  void _variant;
+
+  const rows = project === "guide"
+    ? await query<{
+        actor_id: string;
+        question_id: string | null;
+        answers: unknown;
+      }>(
+        project,
+        `
+        select
+          ${distinctActorExpr()} as actor_id,
+          properties->>'stepId' as question_id,
+          properties->'answers' as answers
+        from events
+        where ${rangeClause(rp)}
+          and event_name = 'onboarding_step_answered'
+        `,
+      )
+    : await query<{
+        actor_id: string;
+        question_id: string | null;
+        answers: unknown;
+      }>(
+        project,
+        `
+        select
+          ${distinctActorExpr()} as actor_id,
+          properties->>'questionId' as question_id,
+          properties->'answer' as answers
+        from events
+        where ${rangeClause(rp)}
+          and event_name = 'onboarding_question_answered'
+        `,
+      );
+
+  const questionDefs = ONBOARDING_QUESTIONS[project];
+  const labelByQuestion = new Map(questionDefs.map((question) => [question.id, question.label]));
+  const optionOrderByQuestion = new Map(questionDefs.map((question) => [question.id, question.options]));
+
+  const questionRespondents = new Map<string, Set<string>>();
+  const answerRespondents = new Map<string, Map<string, Set<string>>>();
+
+  for (const row of rows) {
+    const questionId = row.question_id ?? "";
+    if (!labelByQuestion.has(questionId) || !row.actor_id) continue;
+
+    let selections: string[] = [];
+    if (Array.isArray(row.answers)) {
+      selections = row.answers.map(normalizeAnswer).filter((value): value is string => Boolean(value));
+    } else {
+      const normalized = normalizeAnswer(row.answers);
+      if (normalized) selections = [normalized];
+    }
+
+    if (!selections.length) continue;
+
+    const respondentSet = questionRespondents.get(questionId) ?? new Set<string>();
+    respondentSet.add(row.actor_id);
+    questionRespondents.set(questionId, respondentSet);
+
+    const countsForQuestion = answerRespondents.get(questionId) ?? new Map<string, Set<string>>();
+    for (const selection of new Set(selections)) {
+      const selectedBy = countsForQuestion.get(selection) ?? new Set<string>();
+      selectedBy.add(row.actor_id);
+      countsForQuestion.set(selection, selectedBy);
+    }
+    answerRespondents.set(questionId, countsForQuestion);
+  }
+
+  return questionDefs.map((question) => {
+    const respondents = questionRespondents.get(question.id)?.size ?? 0;
+    const countsForQuestion = answerRespondents.get(question.id) ?? new Map<string, Set<string>>();
+    const optionOrder = optionOrderByQuestion.get(question.id) ?? [];
+
+    const orderedAnswers = [...countsForQuestion.entries()]
+      .sort((a, b) => {
+        const aIndex = optionOrder.indexOf(a[0]);
+        const bIndex = optionOrder.indexOf(b[0]);
+        if (aIndex !== -1 || bIndex !== -1) {
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        }
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([answer, actors]) => ({
+        answer,
+        count: actors.size,
+        percentage: respondents > 0 ? Math.round((actors.size / respondents) * 100) : 0,
+      }));
+
+    return {
+      questionId: question.id,
+      questionLabel: question.label,
+      responses: respondents,
+      answers: orderedAnswers,
+    };
+  });
 }
 
 export async function getEngagement(

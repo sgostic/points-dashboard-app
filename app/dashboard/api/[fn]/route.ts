@@ -6,6 +6,9 @@ import {
   getTopEvents,
   getEventsOverTime,
   getFunnel,
+  getOnboardingDropoff,
+  getOnboardingEmails,
+  getOnboardingAnswerBreakdowns,
   getEngagement,
   getMonetization,
   getDiscovery,
@@ -90,6 +93,12 @@ async function dispatch(
       return getEventsOverTime(project, rp, variant);
     case "funnel":
       return getFunnel(project, rp, variant);
+    case "onboarding-dropoff":
+      return getOnboardingDropoff(project, rp, variant);
+    case "onboarding-emails":
+      return getOnboardingEmails(project, rp, variant);
+    case "onboarding-answer-breakdowns":
+      return getOnboardingAnswerBreakdowns(project, rp, variant);
     case "engagement":
       return getEngagement(project, rp, variant);
     case "monetization":

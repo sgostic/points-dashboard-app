@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useDashboardUrl } from "./use-dashboard-url";
 import { DateRangeProvider } from "./date-range-context";
 import { ProjectSwitcher } from "./project-switcher";
@@ -15,10 +16,20 @@ import { TopEventsChart } from "./charts/top-events";
 import { EngagementChart } from "./charts/engagement";
 import { MonetizationChart } from "./charts/monetization";
 import { DiscoveryChart } from "./charts/discovery";
+import { OnboardingDropoffChart } from "./charts/onboarding-dropoff";
+import { OnboardingEmailsPanel } from "./onboarding-emails";
+import { OnboardingAnswerBreakdowns } from "./onboarding-answer-breakdowns";
 import { PROJECT_LABELS } from "@/lib/dashboard/types";
 
 export function DashboardClient() {
   const { project, range, from, to, variant, page, search, conversationId, setParams } = useDashboardUrl();
+  const lockedVariant = project === "guide" ? "a" : "c";
+
+  useEffect(() => {
+    if (variant !== lockedVariant) {
+      setParams({ variant: lockedVariant });
+    }
+  }, [lockedVariant, setParams, variant]);
 
   return (
     <DateRangeProvider from={from} to={to}>
@@ -30,10 +41,20 @@ export function DashboardClient() {
           </p>
         </header>
 
-        <ProjectSwitcher active={project} onSelect={(p) => setParams({ project: p, page: 1, conversationId: null })} />
+        <ProjectSwitcher
+          active={project}
+          onSelect={(p) =>
+            setParams({
+              project: p,
+              variant: p === "guide" ? "a" : "c",
+              page: 1,
+              conversationId: null,
+            })
+          }
+        />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <VariantFilter value={variant} onChange={(v) => setParams({ variant: v === "all" ? null : v })} />
+          <VariantFilter value={lockedVariant} options={[lockedVariant]} onChange={(v) => setParams({ variant: v })} />
           <RangeControl
             value={range}
             from={from}
@@ -50,23 +71,37 @@ export function DashboardClient() {
 
         <Legend />
 
-        <KpiCards project={project} range={range} variant={variant} />
+        <KpiCards project={project} range={range} variant={lockedVariant} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <FunnelChart project={project} range={range} variant={variant} />
-          <EventsOverTimeChart project={project} range={range} variant={variant} />
-          <TopEventsChart project={project} range={range} variant={variant} />
-          <EngagementChart project={project} range={range} variant={variant} />
-          <MonetizationChart project={project} range={range} variant={variant} />
-          <DiscoveryChart project={project} range={range} variant={variant} />
+          <FunnelChart project={project} range={range} variant={lockedVariant} />
+          <EventsOverTimeChart project={project} range={range} variant={lockedVariant} />
+          <TopEventsChart project={project} range={range} variant={lockedVariant} />
+          <EngagementChart project={project} range={range} variant={lockedVariant} />
+          <MonetizationChart project={project} range={range} variant={lockedVariant} />
+          <DiscoveryChart project={project} range={range} variant={lockedVariant} />
         </div>
 
-        <FeedbackExplorer project={project} range={range} variant={variant} />
+        <section className="space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight">Onboarding</h2>
+            <p className="text-sm text-ink-secondary">
+              Drop-off by step and captured emails from the <code>/start</code> flow.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <OnboardingDropoffChart project={project} range={range} variant={lockedVariant} />
+            <OnboardingEmailsPanel project={project} range={range} variant={lockedVariant} />
+          </div>
+          <OnboardingAnswerBreakdowns project={project} range={range} variant={lockedVariant} />
+        </section>
+
+        <FeedbackExplorer project={project} range={range} variant={lockedVariant} />
 
         <ChatExplorer
           project={project}
           range={range}
-          variant={variant}
+          variant={lockedVariant}
           page={page}
           search={search}
           conversationId={conversationId}

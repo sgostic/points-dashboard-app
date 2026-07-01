@@ -91,6 +91,37 @@ export interface FunnelStep {
   count: number;
 }
 
+export interface OnboardingDropoffStep {
+  stepNumber: number;
+  stepLabel: string;
+  detail: string | null;
+  completed: number;
+  exits: number;
+}
+
+export interface OnboardingEmailLead {
+  email: string;
+  createdAt: string;
+}
+
+export interface OnboardingEmails {
+  total: number;
+  rows: OnboardingEmailLead[];
+}
+
+export interface OnboardingAnswerShare {
+  answer: string;
+  count: number;
+  percentage: number;
+}
+
+export interface OnboardingQuestionBreakdown {
+  questionId: string;
+  questionLabel: string;
+  responses: number;
+  answers: OnboardingAnswerShare[];
+}
+
 export interface Engagement {
   scrollDepth: NameCount[]; // 25/50/75/100
   durationBuckets: NameCount[];
