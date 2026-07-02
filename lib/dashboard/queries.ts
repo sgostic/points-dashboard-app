@@ -141,6 +141,15 @@ function normalizeAnswer(value: unknown): string | null {
   return trimmed;
 }
 
+function otherInput(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("Other:")) return null;
+
+  const input = trimmed.slice("Other:".length).trim();
+  return input || null;
+}
+
 function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -540,6 +549,7 @@ export async function getOnboardingAnswerBreakdowns(
 
   const questionRespondents = new Map<string, Set<string>>();
   const answerRespondents = new Map<string, Map<string, Set<string>>>();
+  const otherInputRespondents = new Map<string, Map<string, Set<string>>>();
 
   for (const row of rows) {
     const questionId = row.question_id ?? "";
@@ -566,11 +576,24 @@ export async function getOnboardingAnswerBreakdowns(
       countsForQuestion.set(selection, selectedBy);
     }
     answerRespondents.set(questionId, countsForQuestion);
+
+    const rawAnswers = Array.isArray(row.answers) ? row.answers : [row.answers];
+    const typedOtherInputs = rawAnswers.map(otherInput).filter((value): value is string => Boolean(value));
+    if (typedOtherInputs.length) {
+      const otherInputsForQuestion = otherInputRespondents.get(questionId) ?? new Map<string, Set<string>>();
+      for (const input of new Set(typedOtherInputs)) {
+        const enteredBy = otherInputsForQuestion.get(input) ?? new Set<string>();
+        enteredBy.add(row.actor_id);
+        otherInputsForQuestion.set(input, enteredBy);
+      }
+      otherInputRespondents.set(questionId, otherInputsForQuestion);
+    }
   }
 
   return questionDefs.map((question) => {
     const respondents = questionRespondents.get(question.id)?.size ?? 0;
     const countsForQuestion = answerRespondents.get(question.id) ?? new Map<string, Set<string>>();
+    const otherInputsForQuestion = otherInputRespondents.get(question.id) ?? new Map<string, Set<string>>();
     const optionOrder = optionOrderByQuestion.get(question.id) ?? [];
 
     const orderedAnswers = [...countsForQuestion.entries()]
@@ -588,6 +611,11 @@ export async function getOnboardingAnswerBreakdowns(
         answer,
         count: actors.size,
         percentage: respondents > 0 ? Math.round((actors.size / respondents) * 100) : 0,
+        otherInputs: answer === "Other"
+          ? [...otherInputsForQuestion.entries()]
+              .map(([name, inputActors]) => ({ name, count: inputActors.size }))
+              .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+          : undefined,
       }));
 
     return {

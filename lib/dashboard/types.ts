@@ -113,6 +113,7 @@ export interface OnboardingAnswerShare {
   answer: string;
   count: number;
   percentage: number;
+  otherInputs?: NameCount[];
 }
 
 export interface OnboardingQuestionBreakdown {

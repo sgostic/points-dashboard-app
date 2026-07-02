@@ -78,19 +78,36 @@ export function OnboardingAnswerBreakdowns({
 
                         <div className="space-y-2">
                           {question.answers.map((answer, index) => (
-                            <div
-                              key={answer.answer}
-                              className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-sm"
-                            >
-                              <span
-                                className="h-2.5 w-2.5 rounded-full"
-                                style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                                aria-hidden="true"
-                              />
-                              <span className="truncate text-brand-ink">{answer.answer}</span>
-                              <span className="whitespace-nowrap text-ink-secondary">
-                                {answer.percentage}% · {answer.count}
-                              </span>
+                            <div key={answer.answer} className="space-y-1">
+                              <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-sm">
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                                  aria-hidden="true"
+                                />
+                                <span className="truncate text-brand-ink">{answer.answer}</span>
+                                <span className="whitespace-nowrap text-ink-secondary">
+                                  {answer.percentage}% · {answer.count}
+                                </span>
+                              </div>
+
+                              {answer.otherInputs?.length ? (
+                                <div className="ml-[5px] border-l border-edge-strong pl-4">
+                                  <div className="space-y-1">
+                                    {answer.otherInputs.map((input) => (
+                                      <div
+                                        key={input.name}
+                                        className="grid grid-cols-[1fr_auto] items-start gap-2 text-xs"
+                                      >
+                                        <span className="min-w-0 break-words text-brand-ink">{input.name}</span>
+                                        <span className="whitespace-nowrap text-ink-secondary">
+                                          {input.count.toLocaleString()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           ))}
                         </div>
@@ -116,7 +133,7 @@ function AnswerTooltip({
   payload,
 }: {
   active?: boolean;
-  payload?: Array<{ payload: { answer: string; count: number; percentage: number } }>;
+  payload?: Array<{ payload: { answer: string; count: number; percentage: number; otherInputs?: Array<{ name: string; count: number }> } }>;
 }) {
   if (!active || !payload?.length) return null;
 
